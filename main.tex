@@ -1,11 +1,11 @@
-\documentclass[a4paper,12pt]{extbook}
+\documentclass[a4paper,12pt, openany]{extbook}
 \input{structure.tex} % Include the file specifying the document structure and custom commands
 
 % ----------------------------------------------------------------------------------------
 % TITOLO
 % ----------------------------------------------------------------------------------------
 \title{
-    \includegraphics[width=0.4\textwidth]{img/logo_unina.png} \\ % Modifica 'logo' con il nome del file del tuo logo
+    \includegraphics[width=0.4\textwidth]{fig/logo_unina.png} \\ % Modifica 'logo' con il nome del file del tuo logo
     \vspace{1cm}
     \Huge{High Performance and\\Quantum Computing} \\
     \vspace{0.5cm} 
@@ -23,5 +23,11 @@
 % TAVOLA DEI CONTENUTI
 \tableofcontents
 \newpage
+
+\chapter*{Introduzione}
+\input{chapters/introduzione/intro.tex}
+
+\chapter{Architetture superscalari}
+\input{chapters/1_architetture_superscalari/richiami_pipeline.tex}
 
 \end{document}
