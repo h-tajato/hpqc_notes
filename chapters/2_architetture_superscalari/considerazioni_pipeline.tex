@@ -1,3 +1,4 @@
+\sloppy
 Consideriamo una semplice architettura pipeline a cinque stages, costituita da \textit{instruction fetch IF} $\rightarrow$ \textit{instruction decode e operand assemby ID} $\rightarrow$ \textit{Execute EXE} $\rightarrow$ \textit{Memory Load/Store MEM} $\rightarrow$ \textit{Writeback WB}. Ognuno di questi stages logici ha una mappatura diretta con una macchina cambinatoriale dell'architettura del processore.
 
 \begin{info}
@@ -8,10 +9,10 @@ Una macchina combinatoriale (o circuito logico combinatorio) è un sistema logic
 \uppercase{è} immediatamente possibile osservare che il tempo di completamento di un'istruzione (in letteratura \textit{latency}) non migliora, anzi al più peggiora, a causa del già discusso overhead introdotto nel controllo della pipeline (Capitolo \ref{chap:richiami_apc}). Il guadagno in termini di throughput idealmente è pari al numero di stadi, ma nella pratica è limitato dall'overhead di pipeline e dagli \textit{hazards}. 
 
 \begin{warn}
-Un \textbf{ciclo di clock} è l'unità fondamentale dettata dal segnale di clock. Tutte le operazioni elementari avvengono in corrispondenza dei fronti di salita del segnale di clock. Un \textbf{ciclo del processore} è il tempo necessario al processore per completare un'operazione base del set di istruzioni. Nelle architetture RISC un ciclo di processore coincide con pochi cicli di clock. Questo tempo viene misurato in \textbf{IPC} (instruction per clock).
+Un \textbf{ciclo di clock} è l'unità di tempo fondamentale dettata dal segnale di clock. Tutte le operazioni elementari avvengono in corrispondenza dei fronti di salita del segnale di clock. Un \textbf{ciclo del processore} è il tempo necessario al processore per completare un'operazione base del set di istruzioni. Nelle architetture RISC un ciclo di processore coincide con pochi cicli di clock. Questo tempo viene misurato in \textbf{IPC} (instruction per clock).
 \end{warn}
 
-\noindent Quindi in una pipeline il tempo di attraversamento di un'istruzione è leggermente peggiroato principalmente a causa del fatto che la sequenzialità combinatoriale della macchina viene frammentata da registri che hanno bisogno di un tempo di \textit{setup}. Il parametro che ne beneficia è il clock cycle, che rispetto ad una macchina sequenziale, è ridotto a $\frac{1}{N}$ dove N è il numero di fasi in cui viene frammentata la macchina combinatoriale. In realtà il clock non può essere più veloce del più lento stadio combinatoriale, che ne scandisce un limite superiore. La tecnica della pipeline dunque non è facilmente scalabile: I \textit{path} combinatoriale non possono essere arbitrariamente frammentati; inoltre, superata una certa granularità, gli overhead limitano i benefici. \\ \noindent Nel caso reale, nei diversi stages la latenza è variabile. Questo è dovuto al fatto che l'infrastruttura della memoria è complessa e nel caso peggiore potrebbero verificarsi dei \textit{cache miss}, così come il processore potrebbe avere diversi unità funzionali dedicate all'esecuzione, ognuna con la propria latenza (alcune operazioni sono più lunghe e complesse di altre).
+\noindent Quindi in una pipeline il tempo di attraversamento di un'istruzione è leggermente peggiroato principalmente a causa del fatto che la sequenzialità combinatoriale della macchina viene frammentata da registri che hanno bisogno di un tempo di \textit{setup}. Il parametro che ne beneficia è il clock cycle, che rispetto ad una macchina sequenziale, è ridotto a $\frac{1}{N}$ dove N è il numero di fasi in cui viene frammentata la macchina combinatoriale. In realtà il clock non può essere più veloce del più lento stadio combinatoriale, che ne scandisce un limite superiore. La tecnica della pipeline dunque non è facilmente scalabile: I \textit{path} combinatoriali non possono essere arbitrariamente frammentati; inoltre, superata una certa granularità, gli overhead limitano i benefici. \\ \noindent Nel caso reale, nei diversi stages la latenza è variabile. Questo è dovuto al fatto che l'infrastruttura della memoria è complessa e nel caso peggiore potrebbero verificarsi dei \textit{cache miss}, così come il processore potrebbe avere diverse unità funzionali dedicate all'esecuzione, ognuna con la propria latenza (alcune operazioni sono più lunghe e complesse di altre).
 
 \begin{figure}[ht]
     \centering
@@ -20,3 +21,48 @@ Un \textbf{ciclo di clock} è l'unità fondamentale dettata dal segnale di clock
     \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_2/pipeline_diversity.png}}
 \end{figure}
 
+\noindent
+Per migliorare l'IPC, si può ricorrere alla moltiplicazione delle istanze di unità funzionali che lavorano in parallelo su più istruzioni. Se l'IPC > 1 si parla di architetture \textbf{superscalari}. \\ \noindent Parlando sempre di pipeline semplice a cinque stadi, possiamo invece agire sull'overhead introdotto dal controllo della pipeline, in particolare risolvere quei conflitti che provocherebbero il blocco (stallo) della pipe. Questo si può fare con l'esecuzione delle istruzioni \textit{out of order}, ovvero con un problema di scheduling vincolato. La pipeline può essere vista nella prospettiva di schedulatore di micro operazioni soggette a vincoli strutturali e dipendenze. I vincoli strutturali sono dettati dell'hardware e scandiscono cosa si può fare in un particolare istante di tempo. I vincoli sulle dipendenze riguardano le relazioni di precedenza tra micro operazioni che devono necessariamente essere soddisfatte nel momento in cui vengono processate dalle unità hardware. 
+Rischedulare le micro operazioni può violare i vincoli sulle dipendenze:
+
+
+\begin{itemize}
+    \item \textbf{READ AFTER WRITE (RAW)}: l'operazione di lettura operando di un' istruzione successiva è performata prima dell'operazione di WB sullo stesso registro di un'istruzione precedente;
+    \item \textbf{WRITE AFTER WRITE (WAW)}: due istruzioni scrivono lo stesso registro, ma l'ordine di WB è invertito e dunque nel registro si trova un dato vecchio; 
+    \item \textbf{WRITE AFTER READ (WAR)}: l'operazione di lettura operando di un'istruzione precedente viene ritardata fino al momento in cui l'operazione di WB di un'istruzione successiva è già avvenuta, distruggendo il contenuto del registro prima che sia letto dall'istruzione precedente.
+\end{itemize}
+
+\section{Scheduling statico}
+Lo scheduling statico di una pipeline è una tecnica di ottimizzazione usata nei processori con pipelining (soprattutto nelle architetture RISC e VLIW) per ridurre o eliminare i hazard (conflitti di dati, di controllo o strutturali) senza dover ricorrere a meccanismi di risoluzione hardware dinamici. Statico significa che lo scheduling viene fatto dal compilatore, in fase di compilazione, non dal processore a runtime. L'idea è che il compilatore riordini le istruzioni in modo da minimizzare i cicli di stallo (stall) e sfruttare al massimo la pipeline.
+
+\section{Scheduling dinamico}
+Con scheduling dinamico intendiamo tecniche hardware che \textit{on the fly}, durante l'esecuzione, cambiano l'ordine di processo di determinate operazioni per risolvere i conflitti ed evitare quando possibile lo stallo della pipeline. 
+Il datapath di una pipeline deve essere gestito da un'opportuna unità di controllo, che risolva potenziali condizioni di \textit{hazard}. Questa unità è responsabile di rilevare il problema e risolverlo bloccando la pipeline a partire da un certo stadio in poi, inserendo delle \textit{bolle}. Per rendere possibile questo controllo è necessario propagare dalla fase ID in poi gli indici deglio operandi, in modo tale che l'unità di controllo possa rilevare possibili conflitti. 
+
+\subsection{Forward paths}
+Il vincolo sulla dipendenza RAW riguarda \textit{vere dipendenze}, ovvero dipendenze dettate dal problema produttore-consumatore tra le istruzioni, e sono indipendenti dall'architettura (riguardano in senso logico il flusso di esecuzione del codice). Inserire un path diretto [output ALU $\rightarrow$ registro operandi] permette di rilassare il vincolo di dipendenza e fare in modo che l'unità di controllo possa risolvere il potenziale conflitto.  
+In altre parole, si cambia il \textit{grafo delle dipendenze} tra le operazioni.
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_2/basic_forwarding.png}}
+\end{figure}
+
+\begin{info}
+    Grafo delle dipendenze: grafo orientato in cui le istruzioni costituiscono i nodi, gli archi invece rappresentano le dipendenze tra queste.
+\end{info}
+
+Osserviamo che in uno schema pipeline a cinque stages di base, dove non contempliamo istruzioni fuori ordine, è verificata sempre la condizione: \textit{una micro-operazione di un'istruzione precedente è sempre eseguita prima della stessa o una successiva micro-operazione di un'istruzione successiva}. In altre parole, se un'istruzione A precede un'istruzione B, l'operazione di \textit{lettura operandi} dell'istruzione A è eseguita prima delle operazioni EX, MEM e WB dell'istruzione B. Di conseguenza, in questo schema semplificato non sono possibili hazards di tipo WAW e WAR. 
+Questo è in generale \textbf{falso} per gli approcci basati sul rescheduling delle operazioni. 
+
+\subsection{Esecuzione out-of-order}
+Un'unità funzionale, come un moltiplicatore o un divisore, può essere internamente organizzata come una pipeline. In questo modo l'unità può iniziare una nuova operazione ad ogni ciclo, pur impiegando diversi cicli per completare un'operazione. 
+
+\begin{info}
+    L'\textbf{initialization interval} (II) è il numero di cicli di clock che devono passare prima di poter avviare una nuova iterazione della pipeline. Questo limite è imposto dall'hardware.
+\end{info}
+
+Se l'II dell'unità funzionale serializzata è minore della latenza totale dell'unità, allora più micro-operazioni possono coesistere nella stessa unità funzionale, pur attraversandola sempre in ordine. Se lo stage EXE contiene più di un'unità funzionale specializzata, ognuna con diverse latenze, è necessario introdurre l'esecuzione \textit{out of order}. 
+Complicando in questo modo l'hardware, è necessario fare delle considerazioni: differenti unità funzionali possono completare l'esecuzione nello stesso ciclo $\rightarrow$ hazard strutturali sull'insieme dei registri $\rightarrow$ WAW hazard; se l'hardware supporta molteplici operazioni di lettura operandi concorrenti, sono possibili hazards strutturali sullo stage EXE (?); Sono possibili hazard di tipo WAR, e gli hazards ti tipo RAW sono più frequenti. 
