@@ -1,0 +1,103 @@
+
+\section{Scheduling statico}
+Lo scheduling statico di una pipeline è una tecnica di ottimizzazione usata nei processori con pipelining (soprattutto nelle architetture RISC e VLIW) per ridurre o eliminare i hazard (conflitti di dati, di controllo o strutturali) senza dover ricorrere a meccanismi di risoluzione hardware dinamici. Statico significa che lo scheduling viene fatto dal compilatore, in fase di compilazione, non dal processore a runtime. L'idea è che il compilatore riordini le istruzioni in modo da minimizzare i cicli di stallo (stall) e sfruttare al massimo la pipeline.
+
+\section{Scheduling dinamico}
+Con scheduling dinamico intendiamo tecniche hardware che \textit{on the fly}, durante l'esecuzione, cambiano l'ordine di processo di determinate operazioni per risolvere i conflitti ed evitare quando possibile lo stallo della pipeline. I vantaggi di uno scheduling dinamico sono molteplici:
+
+\begin{itemize}
+    \item Permette a codice compilato per una determinata architettura di essere efficiente anche su un'architettura diversa, eliminando parzialmente la relazione che sussite tra efficienza e compilazione;
+    \item Permette di gestire casi in cui alcune dipendenze non sono note a tempo di compilazione (riferimenti in memoria e salti dipendenti dai dati);
+    \item Permette al processore di tollerare dei ritardi non prevedibili a tempo di compilazione (cache miss).
+\end{itemize}
+
+Il datapath di una pipeline deve essere gestito da un'opportuna unità di controllo, che risolva potenziali condizioni di \textit{hazard}. Questa unità è responsabile di rilevare il problema e risolverlo bloccando la pipeline a partire da un certo stadio in poi, inserendo delle \textit{bolle}. Per rendere possibile questo controllo è necessario propagare dalla fase ID in poi gli indici deglio operandi, in modo tale che l'unità di controllo possa rilevare possibili conflitti. 
+
+\subsection{Forward paths}
+Il vincolo sulla dipendenza RAW riguarda \textit{vere dipendenze}, ovvero dipendenze dettate dal problema produttore-consumatore tra le istruzioni, e sono indipendenti dall'architettura (riguardano in senso logico il flusso di esecuzione del codice). Inserire un path diretto [output ALU $\rightarrow$ registro operandi] permette di rilassare il vincolo di dipendenza e fare in modo che l'unità di controllo possa risolvere il potenziale conflitto.  
+In altre parole, si cambia il \textit{grafo delle dipendenze} tra le operazioni.
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_2/basic_forwarding.png}}
+\end{figure}
+
+\begin{info}
+    Grafo delle dipendenze: grafo orientato in cui le istruzioni costituiscono i nodi, gli archi invece rappresentano le dipendenze tra queste.
+\end{info}
+
+Il costo di questi benefici è una notevole complicazione dell'hardware. Osserviamo inoltre che lo scheduling dinamico è utlizzabile insieme allo scheduling statico effettuato dal compilatore: una tecnica non prescinde l'altra. \\ \noindent
+Osserviamo che in uno schema pipeline a cinque stages di base, dove non contempliamo istruzioni fuori ordine, è verificata sempre la condizione: \textit{una micro-operazione di un'istruzione precedente è sempre eseguita prima della stessa o una successiva micro-operazione di un'istruzione successiva}. In altre parole, se un'istruzione A precede un'istruzione B, l'operazione di \textit{lettura operandi} dell'istruzione A è eseguita prima delle operazioni EX, MEM e WB dell'istruzione B. Di conseguenza, in questo schema semplificato non sono possibili hazards di tipo WAW e WAR. 
+Questo è in generale \textbf{falso} per gli approcci basati sul rescheduling delle operazioni. 
+
+\subsection{Esecuzione out-of-order}
+Un'unità funzionale, come un moltiplicatore o un divisore, può essere internamente organizzata come una pipeline. In questo modo l'unità può iniziare una nuova operazione ad ogni ciclo, pur impiegando diversi cicli per completare un'operazione. 
+
+\begin{info}
+    L'\textbf{initialization interval} (II) è il numero di cicli di clock che devono passare prima di poter avviare una nuova iterazione della pipeline. Questo limite è imposto dall'hardware.
+\end{info}
+
+Se l'II dell'unità funzionale serializzata è minore della latenza totale dell'unità, allora più micro-operazioni possono coesistere nella stessa unità funzionale, pur attraversandola sempre in ordine. Se lo stage EXE contiene più di un'unità funzionale specializzata, ognuna con diverse latenze, è necessario introdurre l'esecuzione \textit{out of order}. 
+Complicando in questo modo l'hardware, è necessario fare delle considerazioni: differenti unità funzionali possono completare l'esecuzione nello stesso ciclo $\rightarrow$ hazard strutturali sull'insieme dei registri $\rightarrow$ WAW hazard; se l'hardware supporta molteplici operazioni di lettura operandi concorrenti, sono possibili hazards strutturali sullo stage EXE (?); Sono possibili hazard di tipo WAR, e gli hazards ti tipo RAW sono più frequenti. 
+Nelle architetture superscalari il processore può emettere ed eseguire più istruzioni nello stesso ciclo di clock. Questo implica che diverse unità funzionali possano aver bisogno, contemporaneamente, di leggere o scrivere registri. Per esempio, due istruzioni aritmetiche emesse nello stesso ciclo possono richiedere entrambe di leggere due operandi e di scrivere un risultato; se il file dei registri fosse accessibile da una sola porta di lettura e scrittura, ci sarebbe un collo di bottiglia che impedirebbe l'esecuzione parallela. Per questo motivo i registri devono essere multiportati, cioè progettati per permettere più accessi simultanei da locazioni diverse, in modo da garantire che le varie istruzioni in issue nello stesso ciclo possano ottenere i loro operandi o aggiornare i risultati senza conflitti. Rendere i registri multiporting è difficile principalmente per ragioni di complessità circuitale e di costo. Ogni porta aggiuntiva di lettura o scrittura richiede linee di accesso dedicate, logica di decodifica separata e soprattutto un incremento del numero di connessioni interne, il che fa crescere in modo quasi quadratico l'area del circuito e la capacità parassita. Questo significa che più porte si aggiungono, più aumenta il consumo energetico e più rallenta il tempo di accesso ai registri.
+\\ \noindent Avere a che fare con molteplici scritture implica scegliere una strategia di rilevazione della dipendenza e di risoluzione: se si sceglie di rilevare il conflitto già in fase di ID, il processore deve subito confrontare i registri di destinazione delle istruzioni decodificate con quelli delle istruzioni più vecchie ancora in pipeline. Per non perdere l'informazione man mano che le istruzioni avanzano, si usa una catena di shift registers che traccia la distanza (in termini di stadi di pipeline) fino a quando l'istruzione precedente eseguirà il WB. In questo modo, fin dall'inizio si sa che una certa istruzione dovrà aspettare un certo numero di cicli prima di poter scrivere in sicurezza. Il vantaggio è che i conflitti sono gestiti in anticipo, evitando bolle tardive. Lo svantaggio è che servono comparatori e logica aggiuntiva in ID, e gli shift register complicano l'hardware.
+L'alternativa è rilevare il conflitto il più tardi possibile, cioè attendere che le istruzioni arrivino in prossimità della fase di write-back e solo lì controllare se due istruzioni stanno tentando di scrivere lo stesso registro nello stesso ciclo. Questo riduce la complessità logica in ID e alleggerisce la pipeline nei primi stadi, ma aumenta la probabilità di dover bloccare o annullare (stall o flush) istruzioni già avanzate nella pipeline. In altre parole: hardware più semplice, ma più penalità in caso di conflitti.
+In generale conviene rilevare i conflitti presto (in ID con shift register) quando si ha un'architettura aggressivamente superscalare o molto profonda, dove i conflitti diventano frequenti e lo stall tardivo sarebbe molto costoso.
+Gli hazard possono essere significativamente ridotti introducendo \textbf{isolated type registers}. Ciò significa che, invece di avere un unico file di registri condiviso da tutte le unità funzionali, il processore suddivide i registri in più gruppi separati, ciascuno dedicato a un certo “tipo” di istruzione o unità. Per esempio, ci possono essere registri isolati per le operazioni intere, altri per le operazioni in virgola mobile etc. La separazione riduce drasticamente le probabilità di conflitto, perché istruzioni appartenenti a domini funzionali diversi non competono per lo stesso insieme di registri. Inoltre, avere registri specializzati permette anche di ridurre la complessità del multiporting, dato che ogni file di registri isolato può essere più piccolo e più facile da gestire in parallelo.
+\\
+L'idea chiave è separare la fase ID in due fasi indipendenti, \textbf{instruction issue} e \textbf{operand read}. L'instrucion issue consiste nell'\textit{accettare} l'istruzione, riservando risorse per tracciarla in stages successivi, e ciò viene di solito performato \textit{in ordine}; l'operand read invece aspetta che gli operando siano pronti, ed è tipicamente performate \textit{out of order}.
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_2/out_of_order.png}}
+\end{figure}
+
+Nella trattazione teorica qui presentata conviene trattare l'unità di load/store (MEM) come un'unità funzionale al pari delle unità funzionali dedite alle operazioni aritmetico-logiche. 
+
+\subsection{Scoreboard}
+In questa tecnica di implementazione dell'unità di controllo facciamo delle assunzioni: 
+\begin{itemize}
+    \item L'issue di un'istruzione ovviene in ordine, e in questa fase vengono rilevati hazards strutturali e WAW;
+    \item L'operand read avviene, così come la fase EX e la fase di completamento, out-of-order. Inoltre le dipendenze sui dati sono risolte dinamicamente;
+    \item Non vi sono espliciti forwarding paths;
+    \item Per ora ci disinteressiamo del modello delle eccezioni/interruzioni.
+\end{itemize}
+
+La logica per le fasi issue e operand read sono gestite attraverso due tabelle (\textbf{unit status table} e \textbf{register status table}) dall'unità di controllo.
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_2/scoreboard.png}}
+\end{figure}
+
+\noindent La unit table ha tante righe quante le unità funzionali e i seguenti campi:
+
+\begin{description}[style=nextline,leftmargin=3.45cm,labelwidth=2.8cm,labelsep=0.4cm,font=\ttfamily\bfseries, itemsep=0.01em]
+\item[id] Intero che identifica l'unità funzionale
+\item[name] Nome dell'unità funzionale
+\item[busy] Flag che indica se l'unità è occupata
+\item[op] Specifica operazione righiesta all'unità funzionale 
+\item[D] Indice del registro destinazione 
+\item[$S_i$] Indice dell'i-esimo registro sorgente    
+\item[$U_i$] Id dell'unità che eventualmente sta processando il valore che sarà scritto in $S_i$ (=0 se è già disponibile)
+\item[$A_i$] Flag che verifica se il valore nel registro è già disponibile per la lettura  
+\end{description}
+
+\noindent Per quanto riguarda la Register Status Table, questa ha tante riche quanti sono i registri e l'unico campo U $\rightarrow$, che contiene l'id dell'unità che evnentualmente sta processando il valore che verrà scritto nel registro (=0 se già disponibile).
+\\ \noindent Le istruzioni sono recuperate dalla pipeline in ordine e poi possono trovarsi in una delle seguenti fasi: Issue, Operand Read, Execute o Write Back. 
+Le regole per aggiornare le tabelle sono queste:
+
+\begin{itemize}
+    \item Un'istruzione viene \textit{accettata} (issued) solo se:
+    \item \begin{itemize}
+        \item L'unità funzionale richiesta è libera (free = 0);
+        \item Il 
+    \end{itemize}
+\end{itemize}
+
