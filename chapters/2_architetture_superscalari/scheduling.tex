@@ -95,9 +95,27 @@ Le regole per aggiornare le tabelle sono queste:
 
 \begin{itemize}
     \item Un'istruzione viene \textit{accettata} (issued) solo se:
-    \item \begin{itemize}
-        \item L'unità funzionale richiesta è libera (free = 0);
-        \item Il 
+    \begin{itemize}
+        \item L'unità funzionale richiesta è libera (busy = 0);
+        \item Il registro di destinazione non è già segnato (U=0 nella register status table);
     \end{itemize}
+    \item L'Operand Read è performata solo quando entrambi i registri sorgente sono disponibili;
+    \item Quando viene performata Operand Read, i flag $A_1$ e $A_2$ vengono resettati;
+    \item L'esecuzione procede secondo la pipeline dell'unità funzionale; 
+    \item Il WriteBack avviene solo se non ci sono Operand Read sospese su tutte le unità funzionali che aspettano il registro che si sta cercando di scrivere; Una volta effettuato il WB, le entry della tabella relative all'istruzione completata vengono liberate.
 \end{itemize}
 
+\noindent Una vola che un'istruzione viene accettata, le tabelle di scoreboard vengono aggiornate per tenere traccia delle unità e dei regeistri coinvolti. Formalmente:
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.8\textwidth]{fig/chapter_2/transition_rules.png}
+\end{figure}
+
+\noindent Si consultino le slides del corso per un esempio sulla tecnica dello scoreboard. In sintesi, questa tecnica di gestione previene gli hazards in questo modo: i RAW sono risolti tenendo traccia delle dipendenze tra le istruzioni che sono già state accettate; i WAR sono risolti ritardando il WB finchè i registri scrivendi non vengono letti, e ritardando la lettura dei registri alla fase Read Operands; i WAW sono risolti a monte ritardando l'issue di un'istruzione finchè l'istruzione precedente non completa la scrittura del registro destinazione. Con questa soluzione, comunque l'IPC massimo resta sempre 1. Osserviamo che i dati sono gestiti da registri dell'architettura, e questa è una limitazione chiave che vorremmo superare, poichè è causa di molti hazards di tipo WAR e WAW. 
+
+\begin{warn}
+    Gli hazards RAW sono causati da dipendenze intrinseche delle istruzioni. Gli hazards WAR e WAW sono causate da dettagli implementativi (i registri), e pongono solo dei vincoli sullo scheduling.
+\end{warn}
+
+\noindent Il limite principale di questa tecnologia è sicuramente il fatto che la gestione avviene attraverso i registri. Le false dipendenze sono causate proprio dalla numero limitato di registri. Ciò non è tanto dovuto ai limiti fisici legati allo spazio sul silicio su cui realizzarli, quanto più è legato ai bit riservati nella codifica di un istruzione per specificare un determinato registro sorgente/destinazione. 
