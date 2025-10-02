@@ -1,9 +1,7 @@
-name: Genera PDF al push su main
+name: Genera PDF manualmente
 
 on:
-  push:
-    branches:
-      - main
+  workflow_dispatch:
       
 permissions:
   contents: write
@@ -48,5 +46,5 @@ jobs:
       - name: Commit e push del PDF
         run: |
           git add pdf_output/main.pdf
-          git commit -m "Aggiornamento automatico del PDF dopo il push su main" || echo "Nessuna modifica da committare"
+          git commit -m "Release pdf" || echo "Nessuna modifica da committare"
           git push
