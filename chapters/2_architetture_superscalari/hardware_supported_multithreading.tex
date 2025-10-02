@@ -6,7 +6,7 @@ Possiamo identificare, in termini di sprechi di risorse del processore, \textit{
     \centering
     \setlength{\fboxrule}{0.5pt} % spessore sottile
     \setlength{\fboxsep}{0pt}    % senza spazio interno
-    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_2/wasting.png}}
+    \fbox{\includegraphics[width=0.29\textwidth]{fig/chapter_2/wasting.png}}
 \end{figure}
 
 Il meccanismo del multithreading simultaneo conviene perchè è possibile aumentare l'ampiezza della finestra di istruzioni recuperata (poichè i thread utilizzano istruzioni indipendenti) invece che la profondità. Si possono recuperare e accettare n istruzioni per colpo di clock, l'esecuzione è out of order e poi si possono committare fino a n istruzioni per clock. Questo risolve il problema della multiple issue. Vediamo con ordine le varie tipologie di hardware multithreading:
@@ -14,7 +14,7 @@ Il meccanismo del multithreading simultaneo conviene perchè è possibile aument
 \begin{itemize}
     \item \textbf{Coarse-grain}: viene effettuato il cambio di contesto solo su eventi di attesa prolungata (come cache miss), e in generale su eventi che provocano sprechi verticali. Questa soluzione risulta inefficace per nascondere brevi latenze;
     \item \textbf{Fine-grain}: ad ogni colpo di clock, secondo una politica Round Robin, viene effettuato il cambio di contesto. Questa scelta è ottima perchè nasconde anche le latenze brevi e rilassa gli hazards RAW (basti pensare al fatto che vengono interlacciate istruzioni indipendenti per definizione). Questo approccio è utilizzato nelle GPU e in processori con elevato numero di thread per core;
-    \item \item \textbf{Simultaneous multithreading}: tecnica che combina fine grain multithreading con issue multipla e scheduling dinamico. Le tecniche di \textit{register renaming} permettono a istruzioni di thread indipendenti di essere eseguito in maniera simultanea. 
+    \item \textbf{Simultaneous multithreading}: tecnica che combina fine grain multithreading con issue multipla e scheduling dinamico. Le tecniche di \textit{register renaming} permettono a istruzioni di thread indipendenti di essere eseguito in maniera simultanea. 
 \end{itemize}
 
 \subsection{Simultaneous multithreading}
@@ -26,7 +26,7 @@ Grazie a questa duplicazione delle strutture di contesto, il processore è in gr
     \centering
     \setlength{\fboxrule}{0.5pt} % spessore sottile
     \setlength{\fboxsep}{0pt}    % senza spazio interno
-    \fbox{\includegraphics[width=0.75\textwidth]{fig/chapter_2/SMT.png}}
+    \fbox{\includegraphics[width=0.9\textwidth]{fig/chapter_2/SMT.png}}
 \end{figure}
 
 \noindent Questa tecnologia hardware necessita di \textit{estendere} l'insieme di registri del processore. Infatti in un contesto multithread dobbiamo considerare che ogni thread necessita di un certo numero di registri per funzionare. In fase di esecuzione sono presenti \textit{operazioni} proveniente da istruzioni di più threads, i cui operandi sono letti e scritti da registri del processore. Questo implica una n-uplicazione dei registri del register file, e aggiungendo dei bit in più alla chiave della tabella che mantiene l'associazione nome registro $\rightarrow$ indirizzo, in modo da scriverci, in fase di issue quindi in modo totalmente trasparente all'esecuzione, l'ID del thread che sta lavorando su quel registro, e in modo che l'indirizzo del registro fisico sia univoco, nonostante più thread possano usare lo stesso registro logico. 

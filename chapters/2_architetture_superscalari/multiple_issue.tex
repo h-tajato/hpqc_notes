@@ -5,7 +5,7 @@ Il Multiple Issue è la capacità fondamentale delle moderne CPU superscalari di
     \centering
     \setlength{\fboxrule}{0.5pt} % spessore sottile
     \setlength{\fboxsep}{0pt}    % senza spazio interno
-    \fbox{\includegraphics[width=0.75\textwidth]{fig/chapter_2/multiple_issue.png}}
+    \fbox{\includegraphics[width=0.9\textwidth]{fig/chapter_2/multiple_issue.png}}
 \end{figure}
 
 \noindent L'implementazione del ROB implica un overhead non indifferente, e in alcune situazioni può risultare opportuno rinunciare ad una gestione \textit{precisa} delle eccezioni. Infatti alcuni processori supportano il modello di esecuzione flaoting point non preciso, ovvero il comportamento della pipeline non è trasparente alla sequenzialità. Questo modello non preciso ha senso quando effettivamente il calcolo produce NaN, e ciò implica che il calcolo non è andato a buon fine e può essere abortito completamente e rifatto. 
