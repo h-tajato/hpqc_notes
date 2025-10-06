@@ -1,11 +1,12 @@
 \section{Protocolli di coerenza}
-La coerenza può essere definita formalmente tramite un appropriato invariante, scelto tra:
+La coerenza può essere definita formalmente tramite un appropriato invariante, scelto equivalentemente tra:
 
 \begin{itemize}
     \item \textbf{SWMR} (Single Writer Multiple Reader): Durante una data epoca, o c'è un singolo core che può leggere o scrivere la locazione A, oppure un numero di cores che possono solo leggerla.
     \item \textbf{DV} (Data Value): Il valore di A all'inizio di un'epoca è lo stesso valore di A alla fine della sua ultima epoca di lettura/scrittura. 
 \end{itemize}
 
+\noindent
 Altre opzioni per i protocolli di coerenza sono operazioni di \textbf{Update}, di fatto transazioni che aggiornano tutte le copie nelle altre cache su una scrittura, o \textbf{Invalidate}, transazioni che invalidano tutte le altre copie su una scrittura. 
 
 \noindent Il protocollo determina la macchina a stati finiti nelle cache e nei controller. Gli inptus alla FSM della cache sono eventi del core (istruzioni di Load/Store, \textit{eviction} di un blocco) e eventi di interconnesione (messaggi \textit{own} e \textit{other's} accettati dall'interconnesione); gli input alla FSM dell'LLC controller sono solo gli eventi di interconnesione. Gli eventi di interconnessione consistono nei messaggi provenienti da altri core diretti al "nostro" core o al memory controller, e nei messaggi \textit{own}: ricevere un messaggio \textit{own} significa che l'interconnesisone ha accettato il messaggio (altrimenti il messaggio risulterebbe \textit{pending} sull'interfaccia di interconnessione). 
@@ -66,3 +67,21 @@ Di conseguenza, un interazione di richiesta/risposta deve necessariamente essere
 \end{figure}
 
 \subsection{Protocollo a tre stati}
+Per permettere la lettura simultanea di dati condivisi, mantenendo l'invariante SWMR, introduciamo il protocollo a tre stati \textbf{Modified-Shared-Invalid}. Questo protocllo permette di avere repliche dei dati in cache diverse, tranne per il caso in cui un core vuole scrivere il dato. Dal punto di vista dei core, è necessario distinguere richieste di blocchi che saranno solo letti e richiesti di blocchi che invece dovranno essere scritti. Questo implica la distinzione tra messaggi \textit{getS} (Get Shared) e \textit{getM} (Get Modified). Analogamente servirebbe una distinzione tra i messaggi putM e putS, ma putS in questo caso è superfluo in quanto per l'eviction di un blocco in sola lettura non è necessaria comunicazione (\textit{eviction silente}).
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_3/3_state_fsm.png}}
+\end{figure}
+
+\noindent Dal punto di vista dell'LLC, è interessante tracciare solo due stati: o una linea può essere modificata da qualche core oppure \textit{indifferentemente} o qualcuno può solo leggerla o ce l'ha solo LLC. 
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.85\textwidth]{fig/chapter_3/3_state_table.png}}
+\end{figure}
+
