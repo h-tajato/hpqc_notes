@@ -18,10 +18,10 @@ Altre opzioni per i protocolli di coerenza sono operazioni di \textbf{Update}, d
     \fbox{\includegraphics[width=0.8\textwidth]{fig/chapter_3/FSM.png}}
 \end{figure}
 
-\begin{warn}
+\begin{info}
     Una macchina a stati finiti funziona descrivendo un sistema che può trovarsi in un insieme limitato di stati e che cambia stato in base agli ingressi ricevuti. In ogni istante la macchina si trova in uno stato ben preciso, detto stato corrente. Quando riceve un input, consulta le regole di transizione per capire in quale nuovo stato deve andare. A seconda del modello, la macchina può anche produrre un output che dipende solo dallo stato (nel caso di una FSM di Moore) oppure dallo stato e dall'input ricevuto (nel caso di una FSM di Mealy). Questo meccanismo rende le FSM particolarmente utili per descrivere sequenze di eventi o sistemi di controllo.
     Per rappresentarla in una tabella si usa una struttura che mette in relazione gli stati correnti con gli ingressi e specifica quale sarà lo stato successivo e, se previsto, l'output. Una riga della tabella corrisponde a una coppia formata dallo stato corrente e dall'input, mentre le colonne riportano lo stato verso cui si passa e l'eventuale valore di uscita. In questo modo, la tabella diventa una mappa compatta e leggibile che descrive completamente il comportamento della macchina.
-\end{warn}
+\end{info}
 
 \noindent
 Un messaggio di tipo \textbf{Get} rappresenta una \textit{richiesta di lettura o allocazione} di un blocco di memoria. Esso viene tipicamente generato da un core quando si verifica un 
@@ -82,6 +82,61 @@ Per permettere la lettura simultanea di dati condivisi, mantenendo l'invariante 
     \centering
     \setlength{\fboxrule}{0.5pt} % spessore sottile
     \setlength{\fboxsep}{0pt}    % senza spazio interno
-    \fbox{\includegraphics[width=0.85\textwidth]{fig/chapter_3/3_state_table.png}}
+    \fbox{\includegraphics[width=0.95\textwidth]{fig/chapter_3/3_state_table.png}}
 \end{figure}
 
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.55\textwidth]{fig/chapter_3/3_state_table_LLC.png}}
+\end{figure}
+
+\subsection{Lo stato Exclusive}
+\uppercase{è} possibile espandere il numero di stati possibili per gestire al meglio determinate situazioni ricorrenti. Lo stato \textbf{Exclusive} serve a gestire i casi di Load $\rightarrow$ Store. Questp stato è usato in quasi tutti i protocolli di coerenza in commercio, in particolare nei processori ARM. Questo stato ottimizza il caso in cui un core inizialmente legge un blocco, e poi lo sovrascrive. Con il protocollo a tre stati questa situazione è descritta dalla sequenza load miss $\rightarrow$ GetS $\rightarrow$ Write Miss $\rightarrow$ GetM. Aggiungendo lo stato Exclusive, il controller può \textit{silenziosamente} aggiornare lo stato della linea da E $\rightarrow$ M, ma chiaramente solo se è l'unico core ad avere in cache attualmente la linea. 
+
+\begin{warn}
+    In realtà al posto di GetM andrebbe usato \textit{Update}, perchè è inutile trasportare i dati di nuovo dopo la GetS.
+\end{warn}
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.35\textwidth]{fig/chapter_3/common_situation.png}}
+\end{figure}
+
+\noindent \uppercase{è} possibile implementare questo protocollo facendo in modo che il controller LLC abbia traccia di quante caches abbiamo il blocco nello stato S, attraverso un contatore e ricevendo i messaggi PutS, usati dalle cache quando vogliono fare un'operazione di \textit{evict} che fino a questo momento era rimasta silente. In questo modo il controller LLC può tenere traccia di quanti \textit{sharers} esistono, ma al contempo questo aumenta notevolmente il traffico di messaggi per la gestione della coerenza. 
+
+\noindent Esiste una versione \textit{imperfetta} ma meno costosa, che consta di un approccio conservativo. Il controller LLC setta lo stato E di una linea su una prima richiesta di accesso, e nei successivi accessi lo stato muta E $\rightarrow$ S, e non torna mai più allo stato E, anche quando resta solo uno sharer.  
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.55\textwidth]{fig/chapter_3/exclusive_fsm.png}}
+\end{figure}
+
+\subsection{Lo stato Owned}
+\uppercase{è} possibile introdurre lo stato owner: un \textbf{Owner} è la cache che dispone della versione più aggiornata di una linea. Una cache in stato \textbf{O} deve rispondere alle richieste di altre cache per quel blocco, sollevando il controller LLC da questo onere. Quando una cache ha un blocco nello stato M oppure E, e riceve una GetS da un altro core, nel protocollo MSI, la cache deve rispondere mandando il dato al richiedente e al controller LLC, delegando la \textit{ownership} all'LLC. Il protocollo che include lo stato owned elimina il passaggio per l'LLC.
+
+
+\subsection{Recap Stati di coerenza}
+Dei protocolli visti finora possiamo sintetizzare i vari stati:
+
+\begin{itemize}
+    \item \textbf{Modified}: Il blocco è valido, exlusive, owned, e potenzialmente sporco;
+    \item \textbf{Shared}: Il blocco è valido ma non esclusivo, pulito e non owned;
+    \item \textbf{Invalid}: Il blocco è invalido:
+    \item \textbf{Owned}: Il blocco è valido, owned, potenzialmente sporco ma non exclusive;
+    \item \textbf{Exclusive}: Il blocco è valido, exclusive e pulito;
+\end{itemize}
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.9\textwidth]{fig/chapter_3/coherence_events.png}}
+\end{figure}
+
+\subsection{Rimozione delle ipotesi}
