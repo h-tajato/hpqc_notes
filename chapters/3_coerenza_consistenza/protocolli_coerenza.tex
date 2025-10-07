@@ -195,3 +195,12 @@ Per ogni blocco possiamo definire dei ruoli per i nodi:
 
 Assumiamo come ipotesi che l'interconnessione garantisca l'ordinamento point2point, ovvero che se un controller A manda due messaggi al controller B, allora i messaggi arrivano a B nello stesso ordine in cui sono partiti da A. 
 Sotto quest'ipotesi la directory agisce la \textit{punto di serializzazione}, ovvero di ordinamento delle richiesta, ma, a differenza del protocollo basato su snooping, sono necessari messaggi di ack dagli sharers in quanto non c'è cognizione di un ordinamento totale o di serializzazione globale. Ipotizziamo inoltr LLC monolitici con un singolo \textit{Directory Controller}. 
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_3/directory_2.png}}
+\end{figure}
+
+Assumiamo che il sistema consti di N nodi (cores). Il registro contenuto inDirectory tiene traccia di quale cache ospita quale blocco e in che stato, e mantiene lo stato ogni blocco. Per ogni blocco, usa un vettore di N bit denominato \textbf{presence bits}, insieme ai bit per indicare lo stato. Le informazioni conservate nella directory includono lo stato \textbf{stabile} di coerenza (I,O,M,...), l'identità dell'owner su $log_2N$ bits. Le informazioni della directory sono utilizzate e aggiornate in base al particolare protocollo di coerenza. 
