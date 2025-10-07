@@ -140,3 +140,58 @@ Dei protocolli visti finora possiamo sintetizzare i vari stati:
 \end{figure}
 
 \subsection{Rimozione delle ipotesi}
+Nella trattazione fin qui presentata, sono state fatte delle potesi semplificative, che possono essere rimosse complicando il protocollo. Le ipotesi finora assunte sono:
+
+\begin{itemize}
+    \item \textbf{Richieste atomiche}: Ogni richiesta è accettata dall'interconnesione e notificata al sistema appena viene emessa dal core, non sussiste nessun intervallo di tempo tra l'evento interno e la comparsa del corrispondente messaggio sull'interconnessione;
+    \item \textbf{Transazioni atomiche}: Le transazioni non possono sovrapporsi. Una volta che un messaggio di inizializzazione transazione viene accettato, nessun altro messaggio di transazione può essere accettato prima del trasferimento dei dati dati che completa la precedente transazione. La transazione non accettata risulta in uno stallo dell'evento nel core che l'ha generata;
+    \item \textbf{Arbitraggio centralizzato}: Tutti i messaggi sono trasmessi in broadcast a tutti i controller e sono visti \textit{nello stesso ordine}. Questo ordine è garantito dell'interconnessione, che agisce da arbitro centralizzato e determina la consistente sequenza di eventi vista da tutti i controllori. 
+\end{itemize}
+
+\noindent La rimozione di queste ipotesi introduce protocolli più sofisticati che contemplano più stati transienti. Iniziamo rimuovendo l'ipotesi di \textbf{Richieste atomiche}. È necessario adesso considerare una coda di messaggi tra il controller della cache e il bus, in modo che ci sia un delay temporale tra il momento in cui una richiesta è emessa dal controller e il momento in cui viene \textit{ordinata}. Questo comporta un gran numero di stati transienti aggiuntivi. 
+Ad esempio, è necessario introdurre un nuovo stato che contempli l'attesa dell'ACK per una richiesta emessa da parte dell'interconnesione, secondo la trafila $\text{I} \rightarrow \text{IS}^{AD} \rightarrow \text{IS}^{D} \rightarrow S$. Il passaggio tra il penultimo stato e l'ultimo stato è semplice in quanto stiamo ancora facendo l'ipotesi di transazioni atomiche. 
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_3/esempio_rimozione_ipotesi.png}}
+\end{figure}
+
+\noindent \uppercase{è} interessante osservare che nella notazione introdotta per gli stati, per gli stati transienti il primo stato a comparire della coppia è lo stato in cui \textit{effettivamente} il blocco risulta ancora essere nonostante la transizione, e il sistema si comporta di conseguenza. Rimuoviamo ora l'ipotesi di \textbf{arbitraggio centralizzato}. 
+
+\begin{info}
+    Lo snooping è una tecnica in cui tutte le cache collegate a un bus condiviso monitorano costantemente le transazioni che vi transitano, con lo scopo di mantenere la coerenza dei dati. Ogni volta che un processore esegue un'operazione di lettura o scrittura in memoria, tale operazione viene propagata sul bus e tutte le cache osservano (snoop) l'evento per verificare se possiedono una copia della linea di cache coinvolta. In base allo stato della linea di cache, determinato dal protocollo adottato, ciascuna cache può invalidare la propria copia se un altro processore ha scritto su quella linea, fornire i dati direttamente al richiedente se possiede la copia aggiornata, oppure aggiornare la linea secondo le regole del protocollo. In questo modo, lo snooping assicura che tutte le copie di una stessa cella di memoria distribuite nelle diverse cache rimangano consistenti, evitando che un processore lavori su dati obsoleti.
+\end{info}
+
+\noindent Nei protocolli basati sullo snooping tutte le richieste da parte di un controller vengono trasmesse in broadcast a tutti gli altri controllori, incluso se stesso. Ipotesi fondamentale per questa modalità è che la rete di interconnesisone garantisca un ordinamento completo. Il bus condivisio agisce da \textit{ordinatore}, in particolare per le operazioni di scrittura. Lo scopo è mantenere l'invariante SWMR. I vincoli dell'ordine si applicano soprattutto alle richieste, poichè è necessario che sia ordinata la richiesta trasmessa in broadcast, mentre la risposta unicast arriva dopo solo al richiedente. I messaggi DATA possono viaggiare su una rete separata. Nonostante ciò, i protocolli basati su \textit{snooping} non scalano bene . Infatti su una macchina composta da N nodi, ci saranno almeno N interazioni per ogni cache miss, e questo implica un traffico non sostenibile a livello di latenza sul bus che agisce da collo di bottiglia per sistemi con molti nodi. 
+
+\subsection{Directory}
+Soluzione alternativa ai protoclli basti sullo snooping maggiromente scalabile. La \textbf{Directory} è di fatto un componente del sistema che tiene traccia globalmente dello stato di coerenza di tutti i blocchi. Questo registro viene consultato per scoprire informazioni su un blocco nelle altre caches, dove si trova anche la corrente locazione delle copie. Il grande vantaggio di questa soluzione è che queste informazioni sono scambiante in modalità unicast ovvero point2point. La diretory inoltre è logicamente unificata, ma in pratica può essere distribuita su più nodi per aumentare la scalabilità.  
+
+
+\begin{figure}[ht]
+    \centering
+    \setlength{\fboxrule}{0.5pt} % spessore sottile
+    \setlength{\fboxsep}{0pt}    % senza spazio interno
+    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_3/directory.png}}
+\end{figure}
+
+
+\noindent Di base il protocollo basato di directory prevede che le singola caches mandini tutte le richieste ad una singola directory, che risponde alla richiesta o \textit{inoltra} il messaggio ad altri controllers per poi rispondere. Inoltre, la directory e talvolta i controller richiedenti, devono conoscere il numero di \textit{sharer} che condividono un blocco. 
+
+\begin{warn}
+    Il protocollo basato su directoy non specifica i dettagli implementativi della rete di interconnesione. Non deve necessarimente essere un bus condiviso, e richieste e risposte possono fluire in diversi canali.
+\end{warn}
+
+Per ogni blocco possiamo definire dei ruoli per i nodi:
+\begin{itemize}
+    \item \textbf{Home}: Nodo la cui memoria principale contiene la linea;
+    \item \textbf{Dirty}: Nodo che in cache una copia del blocco ma sporca;
+    \item \textbf{Owner}: Nodo che al momento mantiene la copia più recente del blocco e deve rispondere alle richieste per quel blocco;
+    \item \textbf{Exclusive}: Unico nodo che ha il blocco, sia pulito che sporco;
+    \item \textbf{Local}: Nodo che effettua una richiesta per il blocco. 
+\end{itemize}
+
+Assumiamo come ipotesi che l'interconnessione garantisca l'ordinamento point2point, ovvero che se un controller A manda due messaggi al controller B, allora i messaggi arrivano a B nello stesso ordine in cui sono partiti da A. 
+Sotto quest'ipotesi la directory agisce la \textit{punto di serializzazione}, ovvero di ordinamento delle richiesta, ma, a differenza del protocollo basato su snooping, sono necessari messaggi di ack dagli sharers in quanto non c'è cognizione di un ordinamento totale o di serializzazione globale. Ipotizziamo inoltr LLC monolitici con un singolo \textit{Directory Controller}. 
