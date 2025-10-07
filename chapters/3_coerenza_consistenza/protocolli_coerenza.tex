@@ -155,7 +155,7 @@ Ad esempio, è necessario introdurre un nuovo stato che contempli l'attesa dell'
     \centering
     \setlength{\fboxrule}{0.5pt} % spessore sottile
     \setlength{\fboxsep}{0pt}    % senza spazio interno
-    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_3/esempio_rimozione_ipotesi.png}}
+    \fbox{\includegraphics[width=0.3\textwidth]{fig/chapter_3/esempio_rimozione_ipotesi.png}}
 \end{figure}
 
 \noindent \uppercase{è} interessante osservare che nella notazione introdotta per gli stati, per gli stati transienti il primo stato a comparire della coppia è lo stato in cui \textit{effettivamente} il blocco risulta ancora essere nonostante la transizione, e il sistema si comporta di conseguenza. Rimuoviamo ora l'ipotesi di \textbf{arbitraggio centralizzato}. 
@@ -174,7 +174,7 @@ Soluzione alternativa ai protoclli basti sullo snooping maggiromente scalabile. 
     \centering
     \setlength{\fboxrule}{0.5pt} % spessore sottile
     \setlength{\fboxsep}{0pt}    % senza spazio interno
-    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_3/directory.png}}
+    \fbox{\includegraphics[width=0.5\textwidth]{fig/chapter_3/directory.png}}
 \end{figure}
 
 
@@ -200,7 +200,24 @@ Sotto quest'ipotesi la directory agisce la \textit{punto di serializzazione}, ov
     \centering
     \setlength{\fboxrule}{0.5pt} % spessore sottile
     \setlength{\fboxsep}{0pt}    % senza spazio interno
-    \fbox{\includegraphics[width=0.6\textwidth]{fig/chapter_3/directory_2.png}}
+    \fbox{\includegraphics[width=0.5\textwidth]{fig/chapter_3/directory_2.png}}
 \end{figure}
 
 Assumiamo che il sistema consti di N nodi (cores). Il registro contenuto inDirectory tiene traccia di quale cache ospita quale blocco e in che stato, e mantiene lo stato ogni blocco. Per ogni blocco, usa un vettore di N bit denominato \textbf{presence bits}, insieme ai bit per indicare lo stato. Le informazioni conservate nella directory includono lo stato \textbf{stabile} di coerenza (I,O,M,...), l'identità dell'owner su $log_2N$ bits. Le informazioni della directory sono utilizzate e aggiornate in base al particolare protocollo di coerenza. 
+
+\subsection{Protocollo Directory MSI}
+Quando un core ha bisogno di una linea, la richiede alla Directory. Se lo stato della linea è \textbf{I} in Directory (ovvero presente in nessuna cache), allora i dati sono copiati dalla directory al richiedente, e analogamente accade se lo stato è \textbf{S}, indipendentemente da quanti sono gli sharer. Se il blocco è \textbf{O}, ovvero owned da un altro core e potenzialmente sporco, la Directory richiama il blocco dal proprietario, e ritrasmette i dati al richiedente (si può implementare un meccanismo per trasmettere i dati in parallelo al richiedente e alla Directory), e viene aggiornato lo stato: Il nuovo stato è \textbf{S} se arriva una GetS, è \textbf{M} se arriva una GetM, e in quest'ultimo caso aggiornare il campo owner con il nuovo proprietario. Prima di completare la transizione a M, la Directory contatta tutte le cache del presence bits individualmente e deve aspettare un ACK da tutte.
+
+\noindent Questo protocollo può essere ottimizzato nel seguente modo:
+\begin{itemize}
+    \item Dato che non è necessario ordinare le risposte e non è necessario trasferirle in broadcast, queste possono viaggiare su una rete separata che non supporta broadcast e ordinamento;
+    \item Eliminare l'ipotesi di Directory associata ad un singolo LLC: Più Directory indipendenti possono gestire la coerenza di diversi insiemi di blocchi. La Directory per un dato blocco è fissa in un solo posto, ma diversi blocchi possono avere diverse Directories. Ogni blocco ha una \textit{home}, ovvero una directory che ospita i dati e lo stato di directory;
+    \item Riduzione dell'informazione conservata in Directory: Una entry nella sharer list corrisponde ad un gruppo di K caches, e se una o più caches di quel gruppo hanno il blocco potenzialmente è in stato S, allora viene alzato il bit. Questo però è inefficiente in quanto molti dei messaggi di \textit{invalidation}, che comunque devono essere mandati dalle cache, risultano inutili ai fini del mantenimento della bitmap. La soluzione consiste nel tenere traccia degli M blocchi (M<N) che hanno 0 o pochi sharer, in modo tale da ridurre i bit a $M\cdot log_2N$. Questo potrebbe però richiedere un meccanismo aggiuntivo per gestire il caso, comunque raro, di voler aggiungere un (M+1)esimo sharer.  
+\end{itemize}
+
+\begin{warn}
+    I protocolli di coerenza possono introdurre deadlocks! Infatti la ricezione di un messaggio può scatenare l'invio di un messaggio di tipo \textit{forward}, e questi messaggi possono usare una risorsa comune (linee di rete, buffers o code). Una soluzione è l'uso di \textit{virtual networks}, che separano i messagi in classi, e vengono utilizzati buffer dedicati per ogni tipologia di messaggio, in modo da evitare cicli nel grafo delle dipendenze a livello di \textit{risorsa di rete}.
+\end{warn}
+
+
+
